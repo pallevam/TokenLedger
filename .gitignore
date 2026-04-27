@@ -1,0 +1,66 @@
+# =============================================================================
+# Python
+# =============================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+
+# Testing & coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# =============================================================================
+# Project-Specific
+# =============================================================================
+
+# Local development SQLite database (fallback when Supabase is not configured)
+*.db
+*.sqlite
+*.sqlite3
+
+# Application logs
+*.log
+logs/
+
+# =============================================================================
+# Secrets & Credentials (NEVER commit these)
+# =============================================================================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+gcp-credentials.json
+service-account*.json
+
+# =============================================================================
+# IDEs & Editors
+# =============================================================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*.DS_Store
+
+# =============================================================================
+# Google Cloud SDK
+# =============================================================================
+.gcloud/
+application_default_credentials.json

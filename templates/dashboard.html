@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Token Tracker Dashboard</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f9fafb; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h1 { color: #111827; }
+        .stats { display: flex; gap: 20px; margin-bottom: 30px; }
+        .stat-card { background: #eff6ff; padding: 15px 25px; border-radius: 6px; border: 1px solid #bfdbfe; }
+        .stat-value { font-size: 24px; font-weight: bold; color: #1d4ed8; }
+        .stat-label { font-size: 14px; color: #3b82f6; text-transform: uppercase; letter-spacing: 0.05em; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #e5e7eb; }
+        th { background-color: #f3f4f6; color: #4b5563; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Token Tracker Dashboard</h1>
+        <p>Viewing usage for user: <strong>{{ user_id }}</strong></p>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-label">Total Cost</div>
+                <div class="stat-value">${{ "%.4f"|format(total_cost) }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Total Tokens</div>
+                <div class="stat-value">{{ total_tokens }}</div>
+            </div>
+        </div>
+
+        <h2>Recent Usage Logs</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Provider</th>
+                    <th>Model</th>
+                    <th>Tokens (P/C)</th>
+                    <th>Cost</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in records %}
+                <tr>
+                    <td>{{ log.timestamp }}</td>
+                    <td>{{ log.provider }}</td>
+                    <td>{{ log.model }}</td>
+                    <td>{{ log.prompt_tokens }} / {{ log.completion_tokens }}</td>
+                    <td>${{ "%.6f"|format(log.total_cost) }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" style="text-align: center;">No usage data found.</td>
+                </tr>
+                {% endendfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
