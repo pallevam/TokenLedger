@@ -25,12 +25,12 @@ class IProviderPricing(ABC):
 
 class ITrackerStorage(ABC):
     @abstractmethod
-    def log_usage(self, record: UsageRecord) -> None:
+    async def log_usage(self, record: UsageRecord) -> None:
         """Log a token usage record to the database."""
         pass
 
     @abstractmethod
-    def get_usage(self, user_id: str) -> Dict[str, Any]:
+    async def get_usage(self, user_id: str) -> Dict[str, Any]:
         """Retrieve aggregated usage statistics for a specific user."""
         pass
 
