@@ -1,9 +1,15 @@
+import os
 from contextlib import asynccontextmanager
 from datetime import date, timedelta
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
 from src.storage.database import PostgresStorage
 from src.usage_puller.sync import sync as sync_usage
 
@@ -33,7 +39,8 @@ async def dashboard(request: Request, user_id: str = "default_user"):
     breakdown, daily cost timeline, and recent usage logs.
     """
     usage_data = await storage.get_usage(user_id=user_id)
-    return templates.TemplateResponse("dashboard.html", {
+    
+    context = {
         "request": request,
         "user_id": user_id,
         "total_cost": usage_data["total_cost"],
@@ -43,7 +50,9 @@ async def dashboard(request: Request, user_id: str = "default_user"):
         "provider_stats": usage_data["provider_stats"],
         "timeline": usage_data["timeline"],
         "records": usage_data["records"],
-    })
+    }
+    
+    return templates.TemplateResponse(request, "dashboard.html", context)
 
 
 @app.get("/health")

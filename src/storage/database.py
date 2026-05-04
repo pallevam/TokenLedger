@@ -1,36 +1,65 @@
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from sqlalchemy import select, and_
+from sqlalchemy.engine import URL
+from sqlalchemy import select
 from src.core.interfaces import ITrackerStorage, UsageRecord
 from src.storage.models import UsageLog, DailyProviderUsage, Base
 from datetime import date as _date
 import os
+import urllib.parse
+
+
+def _build_async_url(raw_url: str) -> URL:
+    """
+    Parse a raw DATABASE_URL string (with or without +asyncpg dialect,
+    with or without percent-encoded special chars in the password) and
+    return a SQLAlchemy URL object that asyncpg can consume safely.
+
+    Using URL.create() instead of passing the raw string avoids double-
+    encoding / misparse issues when passwords contain '@', '+', etc.
+    """
+    parsed = urllib.parse.urlparse(raw_url)
+
+    # urllib.parse.urlparse correctly splits host from userinfo even when
+    # the password contains a literal '@' (as long as it's percent-encoded).
+    # unquote() gives us the raw password back so URL.create() can re-encode.
+    password = urllib.parse.unquote(parsed.password) if parsed.password else None
+    database = parsed.path.lstrip("/")
+
+    return URL.create(
+        drivername="postgresql+asyncpg",
+        username=parsed.username,
+        password=password,
+        host=parsed.hostname,
+        port=parsed.port or 5432,
+        database=database,
+    )
 
 
 class PostgresStorage(ITrackerStorage):
     def __init__(self, database_url: str = None):
-        url = database_url or os.environ.get("DATABASE_URL", "")
+        raw_url = database_url or os.environ.get("DATABASE_URL", "")
 
-        if not url:
+        if not raw_url:
             raise ValueError(
                 "DATABASE_URL is not set. "
                 "Add it to your .env file (see .env.example for options)."
             )
 
-        # Transparently upgrade the dialect to asyncpg if the caller passed a
-        # plain postgresql:// URL (e.g. copied from Supabase dashboard).
-        if url.startswith("postgresql://"):
-            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
-
         self.engine = create_async_engine(
-            url,
-            echo=False,          # Set True temporarily to log SQL for debugging
-            pool_pre_ping=True,  # Recycle stale connections automatically
+            _build_async_url(raw_url),
+            echo=False,           # Set True temporarily to log SQL for debugging
+            pool_pre_ping=True,   # Recycle stale connections automatically
+            connect_args={
+                "ssl": "require", # Supabase mandates SSL; also fixes IPv6 resolution
+                                  # on macOS where asyncpg's auto-negotiate path fails
+            },
         )
         self.SessionLocal = async_sessionmaker(
             self.engine,
             expire_on_commit=False,
             class_=AsyncSession,
         )
+
 
     async def init_db(self) -> None:
         """Create all tables if they do not already exist.
