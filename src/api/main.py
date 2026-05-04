@@ -1,8 +1,11 @@
 from contextlib import asynccontextmanager
+from datetime import date, timedelta
+
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from src.storage.database import PostgresStorage
+from src.usage_puller.sync import sync as sync_usage
 
 # ---------------------------------------------------------------------------
 # Application lifespan – runs init_db() once on startup before any request
@@ -46,3 +49,21 @@ async def dashboard(request: Request, user_id: str = "default_user"):
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
+
+
+@app.post("/sync")
+async def sync_provider_usage(days: int = 7):
+    """Pull the last `days` of daily usage from each configured provider."""
+    end = date.today()
+    start = end - timedelta(days=days - 1)
+    summary = await sync_usage(start, end, storage=storage)
+    return {"start": start.isoformat(), "end": end.isoformat(), "result": summary}
+
+
+@app.get("/usage/daily")
+async def daily_usage(days: int = 30):
+    """Return aggregated daily provider usage for the last `days` days."""
+    end = date.today()
+    start = end - timedelta(days=days - 1)
+    rows = await storage.get_daily_usage(start=start, end=end)
+    return {"start": start.isoformat(), "end": end.isoformat(), "rows": rows}

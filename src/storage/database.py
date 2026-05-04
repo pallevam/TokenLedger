@@ -1,7 +1,8 @@
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, and_
 from src.core.interfaces import ITrackerStorage, UsageRecord
-from src.storage.models import UsageLog, Base
+from src.storage.models import UsageLog, DailyProviderUsage, Base
+from datetime import date as _date
 import os
 
 
@@ -116,3 +117,69 @@ class PostgresStorage(ITrackerStorage):
             "timeline": timeline,
             "records": records,
         }
+
+    async def upsert_daily_usage(
+        self,
+        day: _date,
+        provider: str,
+        model: str,
+        input_tokens: int,
+        output_tokens: int,
+        cost_usd: float,
+    ) -> None:
+        """Insert or update a daily aggregate row pulled from a provider API."""
+        async with self.SessionLocal() as session:
+            existing = await session.execute(
+                select(DailyProviderUsage).where(
+                    and_(
+                        DailyProviderUsage.date == day,
+                        DailyProviderUsage.provider == provider,
+                        DailyProviderUsage.model == model,
+                    )
+                )
+            )
+            row = existing.scalar_one_or_none()
+            if row:
+                row.input_tokens = input_tokens
+                row.output_tokens = output_tokens
+                row.cost_usd = cost_usd
+            else:
+                session.add(
+                    DailyProviderUsage(
+                        date=day,
+                        provider=provider,
+                        model=model,
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens,
+                        cost_usd=cost_usd,
+                    )
+                )
+            await session.commit()
+
+    async def get_daily_usage(
+        self,
+        start: _date | None = None,
+        end: _date | None = None,
+    ) -> list[dict]:
+        """Return daily provider usage rows in [start, end], newest first."""
+        async with self.SessionLocal() as session:
+            stmt = select(DailyProviderUsage)
+            if start:
+                stmt = stmt.where(DailyProviderUsage.date >= start)
+            if end:
+                stmt = stmt.where(DailyProviderUsage.date <= end)
+            result = await session.execute(stmt)
+            rows = result.scalars().all()
+        rows.sort(key=lambda r: (r.date, r.provider, r.model), reverse=True)
+        return [
+            {
+                "date": r.date.isoformat(),
+                "provider": r.provider,
+                "model": r.model,
+                "input_tokens": r.input_tokens,
+                "output_tokens": r.output_tokens,
+                "cost_usd": round(r.cost_usd, 6),
+                "pulled_at": r.pulled_at.isoformat() if r.pulled_at else None,
+            }
+            for r in rows
+        ]
